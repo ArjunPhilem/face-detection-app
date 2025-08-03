@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam Face Detection, Recognition & Age/Gender</title>
+    <link rel="stylesheet" href="styles.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Webcam Face Detection, Recognition & Age/Gender</h1>
+            <p>Real-time face detection, recognition, age and gender analysis using your webcam</p>
+        </header>
+
+        <main>
+            <div class="webcam-section">
+                <div class="video-container">
+                    <video id="webcam" autoplay muted playsinline></video>
+                    <canvas id="overlay"></canvas>
+                </div>
+                
+                <div class="controls">
+                    <button id="startBtn" class="btn btn-primary">Start Webcam</button>
+                    <button id="stopBtn" class="btn btn-secondary" disabled>Stop Webcam</button>
+                    <button id="detectBtn" class="btn btn-success" disabled>Start Detection</button>
+                    <button id="captureBtn" class="btn btn-info" disabled>Capture Photo</button>
+                </div>
+
+                <div class="status">
+                    <p id="statusText">Click "Start Webcam" to begin</p>
+                    <div id="faceCount" class="face-count"></div>
+                </div>
+            </div>
+
+            <!-- Photo Capture Section -->
+            <div class="section capture-section">
+                <h2>Capture & Label Faces</h2>
+                <div class="capture-area">
+                    <div class="captured-photos" id="capturedPhotos">
+                        <p class="no-photos">No photos captured yet. Start webcam and click "Capture Photo" to begin.</p>
+                    </div>
+                    <div class="capture-controls">
+                        <input type="text" id="personName" placeholder="Enter person's name" disabled>
+                        <button id="trainBtn" class="btn btn-primary" disabled>Train Recognition</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recognition Section -->
+            <div class="section recognition-section">
+                <h2>Face Recognition</h2>
+                <div class="recognition-controls">
+                    <button id="recognizeBtn" class="btn btn-warning" disabled>Start Recognition</button>
+                    <button id="stopRecognitionBtn" class="btn btn-secondary" disabled>Stop Recognition</button>
+                </div>
+                <div id="recognitionResults" class="recognition-results"></div>
+            </div>
+
+            <!-- Stored Faces Section -->
+            <div class="section stored-faces-section">
+                <h2>Stored Faces</h2>
+                <div id="storedFaces" class="stored-faces-container"></div>
+                <button id="clearStorageBtn" class="btn btn-danger">Clear All Data</button>
+            </div>
+
+            <div class="info-section">
+                <h2>How it works</h2>
+                <ul>
+                    <li>Click "Start Webcam" to enable your camera</li>
+                    <li>Click "Start Detection" to begin face detection with age/gender analysis</li>
+                    <li>Click "Capture Photo" to take a photo of a face with age/gender info</li>
+                    <li>Enter the person's name and click "Train Recognition"</li>
+                    <li>Click "Start Recognition" to recognize trained faces with age/gender</li>
+                    <li>Faces will be highlighted with bounding boxes, names, age and gender</li>
+                </ul>
+            </div>
+        </main>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="loading-overlay hidden">
+            <div class="loading-content">
+                <div class="spinner"></div>
+                <p id="loadingText">Loading face detection models...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 
