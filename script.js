@@ -1,4 +1,4 @@
-// Global variables
+
 let webcam = null;
 let stream = null;
 let isDetecting = false;
@@ -9,13 +9,14 @@ let faceMatcher = null;
 let storedFaces = [];
 let capturedPhotos = [];
 
-// DOM elements
+
 const videoElement = document.getElementById('webcam');
 const canvasElement = document.getElementById('overlay');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const detectBtn = document.getElementById('detectBtn');
 const captureBtn = document.getElementById('captureBtn');
+const forceCaptureBtn = document.getElementById('forceCaptureBtn');
 const personNameInput = document.getElementById('personName');
 const trainBtn = document.getElementById('trainBtn');
 const recognizeBtn = document.getElementById('recognizeBtn');
@@ -79,6 +80,7 @@ startBtn.addEventListener('click', startWebcam);
 stopBtn.addEventListener('click', stopWebcam);
 detectBtn.addEventListener('click', toggleDetection);
 captureBtn.addEventListener('click', capturePhoto);
+forceCaptureBtn.addEventListener('click', forceCapturePhoto);
 trainBtn.addEventListener('click', trainFaces);
 recognizeBtn.addEventListener('click', startRecognition);
 stopRecognitionBtn.addEventListener('click', stopRecognition);
@@ -112,6 +114,7 @@ async function startWebcam() {
             stopBtn.disabled = false;
             detectBtn.disabled = false;
             captureBtn.disabled = false;
+            forceCaptureBtn.disabled = false;
             
             updateStatus('Webcam started! Click "Start Detection" to begin face detection.');
         };
@@ -150,6 +153,7 @@ function stopWebcam() {
     stopBtn.disabled = true;
     detectBtn.disabled = true;
     captureBtn.disabled = true;
+    forceCaptureBtn.disabled = true;
     detectBtn.textContent = 'Start Detection';
     
     // Clear face count
@@ -273,7 +277,7 @@ async function detectFaces() {
     }
 }
 
-// Capture photo from webcam
+// Capture photo from webcam (requires face detection)
 async function capturePhoto() {
     if (!stream || videoElement.paused || videoElement.ended) {
         updateStatus('Please start webcam first.', 'error');
@@ -298,7 +302,7 @@ async function capturePhoto() {
         ).withFaceLandmarks().withFaceDescriptors();
         
         if (detections.length === 0) {
-            updateStatus('No faces detected in the photo. Please try again.', 'error');
+            updateStatus('No faces detected in the photo. Please try again or use "Force Capture" for sideways faces.', 'error');
             return;
         }
         
@@ -327,7 +331,8 @@ async function capturePhoto() {
             id: Date.now(),
             dataUrl: photoDataUrl,
             detections: combinedDetections,
-            name: ''
+            name: '',
+            isForceCaptured: false
         };
         
         capturedPhotos.push(photoItem);
@@ -342,6 +347,51 @@ async function capturePhoto() {
     } catch (error) {
         updateStatus('Error capturing photo: ' + error.message, 'error');
         console.error('Photo capture error:', error);
+    }
+}
+
+// Force capture photo from webcam (no face detection required)
+async function forceCapturePhoto() {
+    if (!stream || videoElement.paused || videoElement.ended) {
+        updateStatus('Please start webcam first.', 'error');
+        return;
+    }
+    
+    try {
+        // Create a canvas to capture the current frame
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        canvas.width = videoElement.videoWidth;
+        canvas.height = videoElement.videoHeight;
+        
+        // Draw the current video frame to canvas
+        ctx.drawImage(videoElement, 0, 0);
+        
+        // Convert canvas to data URL
+        const photoDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        
+        // Add photo to captured photos without face detection
+        const photoItem = {
+            id: Date.now(),
+            dataUrl: photoDataUrl,
+            detections: [], // No detections for force captured photos
+            name: '',
+            isForceCaptured: true
+        };
+        
+        capturedPhotos.push(photoItem);
+        updateCapturedPhotosDisplay();
+        
+        // Enable training controls
+        personNameInput.disabled = false;
+        trainBtn.disabled = false;
+        
+        updateStatus('Photo force captured! No faces detected. Enter a name and click "Train Recognition". Note: Recognition may be less accurate for force-captured photos.');
+        
+    } catch (error) {
+        updateStatus('Error force capturing photo: ' + error.message, 'error');
+        console.error('Force photo capture error:', error);
     }
 }
 
@@ -378,6 +428,18 @@ function updateCapturedPhotosDisplay() {
             infoDiv.className = 'photo-info';
             infoDiv.innerHTML = `${gender} (${genderProbability}%) • Age: ${age}`;
             photoItem.appendChild(infoDiv);
+        }
+        
+        // Add force capture indicator
+        if (photo.isForceCaptured) {
+            const forceCaptureDiv = document.createElement('div');
+            forceCaptureDiv.className = 'force-capture-indicator';
+            forceCaptureDiv.innerHTML = '⚠️ Force Captured (No Face Detected)';
+            forceCaptureDiv.style.color = '#ff9800';
+            forceCaptureDiv.style.fontSize = '12px';
+            forceCaptureDiv.style.fontWeight = 'bold';
+            forceCaptureDiv.style.marginTop = '5px';
+            photoItem.appendChild(forceCaptureDiv);
         }
         
         photoItem.appendChild(img);
@@ -420,19 +482,69 @@ async function trainFaces() {
         
         // Extract descriptors and age/gender info from all captured photos
         for (const photo of capturedPhotos) {
-            // Ensure descriptors are properly extracted as Float32Array
-            for (const detection of photo.detections) {
-                if (detection.descriptor && detection.descriptor instanceof Float32Array) {
-                    descriptors.push(detection.descriptor);
+            if (photo.isForceCaptured) {
+                // For force-captured photos, we need to detect faces in the captured image
+                try {
+                    const img = new Image();
+                    img.src = photo.dataUrl;
+                    await new Promise((resolve, reject) => {
+                        img.onload = resolve;
+                        img.onerror = reject;
+                    });
                     
-                    // Get age/gender info from first detection
-                    if (detection.age && detection.gender) {
+                    // Try to detect faces in the force-captured photo
+                    const forceDetections = await faceapi.detectAllFaces(
+                        img, 
+                        new faceapi.TinyFaceDetectorOptions({
+                            inputSize: 224,
+                            scoreThreshold: 0.3 // Lower threshold for force-captured photos
+                        })
+                    ).withFaceLandmarks().withFaceDescriptors();
+                    
+                    // Add descriptors from force-captured photos
+                    for (const detection of forceDetections) {
+                        if (detection.descriptor && detection.descriptor instanceof Float32Array) {
+                            descriptors.push(detection.descriptor);
+                        }
+                    }
+                    
+                    // Get age and gender for force-captured photos
+                    const ageGenderDetections = await faceapi.detectAllFaces(
+                        img, 
+                        new faceapi.TinyFaceDetectorOptions({
+                            inputSize: 224,
+                            scoreThreshold: 0.3
+                        })
+                    ).withAgeAndGender();
+                    
+                    if (ageGenderDetections.length > 0) {
+                        const detection = ageGenderDetections[0];
                         const age = Math.round(detection.age);
                         const gender = detection.gender;
                         const genderProbability = Math.round(detection.genderProbability * 100);
                         
                         ageInfo = `Age: ${age}`;
                         genderInfo = `${gender} (${genderProbability}%)`;
+                    }
+                    
+                } catch (error) {
+                    console.warn('Could not extract face data from force-captured photo:', error);
+                }
+            } else {
+                // Regular captured photos
+                for (const detection of photo.detections) {
+                    if (detection.descriptor && detection.descriptor instanceof Float32Array) {
+                        descriptors.push(detection.descriptor);
+                        
+                        // Get age/gender info from first detection
+                        if (detection.age && detection.gender) {
+                            const age = Math.round(detection.age);
+                            const gender = detection.gender;
+                            const genderProbability = Math.round(detection.genderProbability * 100);
+                            
+                            ageInfo = `Age: ${age}`;
+                            genderInfo = `${gender} (${genderProbability}%)`;
+                        }
                     }
                 }
             }
@@ -444,6 +556,9 @@ async function trainFaces() {
             return;
         }
         
+        // Check if any force-captured photos were used
+        const hasForceCaptured = capturedPhotos.some(photo => photo.isForceCaptured);
+        
         // Store the face data with age/gender info
         const faceData = {
             name: personName,
@@ -451,7 +566,8 @@ async function trainFaces() {
             imageSrc: capturedPhotos[0].dataUrl,
             age: ageInfo,
             gender: genderInfo,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            hasForceCaptured: hasForceCaptured
         };
         
         storedFaces.push(faceData);
@@ -775,6 +891,11 @@ function updateStoredFacesDisplay() {
         }
         if (face.gender) {
             faceHTML += `<p>${face.gender}</p>`;
+        }
+        
+        // Add force capture warning if applicable
+        if (face.hasForceCaptured) {
+            faceHTML += `<p style="color: #ff9800; font-weight: bold;">⚠️ Contains force-captured photos</p>`;
         }
         
         faceHTML += `<p>${new Date(face.timestamp).toLocaleDateString()}</p>`;

@@ -26,6 +26,7 @@
                     <button id="stopBtn" class="btn btn-secondary" disabled>Stop Webcam</button>
                     <button id="detectBtn" class="btn btn-success" disabled>Start Detection</button>
                     <button id="captureBtn" class="btn btn-info" disabled>Capture Photo</button>
+                    <button id="forceCaptureBtn" class="btn btn-warning" disabled>Force Capture</button>
                 </div>
 
                 <div class="status">
@@ -71,10 +72,15 @@
                     <li>Click "Start Webcam" to enable your camera</li>
                     <li>Click "Start Detection" to begin face detection with age/gender analysis</li>
                     <li>Click "Capture Photo" to take a photo of a face with age/gender info</li>
+                    <li><strong>Use "Force Capture" for sideways faces or when detection fails</strong></li>
                     <li>Enter the person's name and click "Train Recognition"</li>
                     <li>Click "Start Recognition" to recognize trained faces with age/gender</li>
                     <li>Faces will be highlighted with bounding boxes, names, age and gender</li>
                 </ul>
+                <div style="margin-top: 15px; padding: 10px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px;">
+                    <strong>💡 Tip:</strong> If you turn sideways and the model can't detect your face, use the "Force Capture" button. 
+                    The system will still try to extract face data from the captured image for recognition, though accuracy may be reduced.
+                </div>
             </div>
         </main>
 
